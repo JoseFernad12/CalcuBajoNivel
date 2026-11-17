@@ -12,8 +12,11 @@ proc CrearControles hwnd
         [hInstance],\
         0
 
-    mov [hEditOp],eax
-
+    mov [hEditOp], eax
+    
+    ; subclasear el edit para bloquear TODO el teclado
+    invoke SetWindowLong, [hEditOp], GWL_WNDPROC, EditSinTeclado
+    mov dword [hEditOpOldProc], eax
 
     ; cuadro derecho
     invoke CreateWindowEx,\
@@ -88,19 +91,15 @@ proc CrearControles hwnd
 
     invoke CreateWindowEx,0,ButtonClass,txt0,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,20,205,45,30,[hwnd],IDC_BTN_0,[hInstance],0
 
-    invoke CreateWindowEx,0,ButtonClass,txtComa,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,70,205,45,30,[hwnd],IDC_BTN_COMA,[hInstance],0
+    invoke CreateWindowEx,0,ButtonClass,txtIgual,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,70,205,45,30,[hwnd],IDC_BTN_IGUAL,[hInstance],0
 
     invoke CreateWindowEx,0,ButtonClass,txtPunto,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,120,205,45,30,[hwnd],IDC_BTN_PUNTO,[hInstance],0
-
-    invoke CreateWindowEx,0,ButtonClass,txtIgual,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,170,205,45,30,[hwnd],IDC_BTN_IGUAL,[hInstance],0
-
 
     ; --------------------
     ; SALIR
     ; --------------------
 
     invoke CreateWindowEx,0,ButtonClass,txtSalir,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,75,265,85,30,[hwnd],IDC_BTN_SALIR,[hInstance],0
-
 
     ret
 

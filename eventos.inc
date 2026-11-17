@@ -1,5 +1,6 @@
 ; Constantes de validacion
-MAX_DIGITOS = 11
+MAX_DIGITOS     = 11
+MAX_CARACTERES  = 30
 
 proc ProcesarComando uses ebx esi edi, hwnd,wparam,lparam
 
@@ -24,11 +25,15 @@ proc ProcesarComando uses ebx esi edi, hwnd,wparam,lparam
     cmp eax,IDC_BTN_BACK
     je .borrar
 
+    ; --------------------
+    ; = : no se escribe, reservado para la logica
+    ; --------------------
+    cmp eax,IDC_BTN_IGUAL
+    je .fin
+
+    ; --------------------
     ; ignorar mensajes que no son de botones de entrada
-    ; Botones de entrada validos: 1140(=), 1141(=? no, = es 1141), 1142(.)
-    ; Rango total de botones que agregan texto: 1110..1142
-    ; Pero ojo: PORC=1102, DIV=1103 tambien agregan texto.
-    ; Rango real de "agrega texto": 1102..1142 (todos los botones de la grilla)
+    ; --------------------
     cmp eax,IDC_BTN_PORC
     jb .fin
     cmp eax,IDC_BTN_PUNTO
@@ -44,26 +49,33 @@ proc ProcesarComando uses ebx esi edi, hwnd,wparam,lparam
     invoke GetWindowText,[lparam],btnText,15
     mov edx,eax                     ; edx = longitud del texto del boton
 
-    ; --- Regla 1: no superar MAX_DIGITOS totales ---
+    ; --- Regla 1: limite total de caracteres ---
+    mov eax,ebx
+    add eax,edx
+    cmp eax,MAX_CARACTERES
+    ja .fin
+
+    ; --- Regla 2: limite de 11 digitos ---
     call ContarDigitosBuffer        ; eax = digitos en buffer
     mov ecx,eax
-    call ContarDigitosBoton         ; eax = digitos en btnText (usa edx)
+    call ContarDigitosBoton         ; eax = digitos en btnText
     add ecx,eax
     cmp ecx,MAX_DIGITOS
-    ja .fin                         ; se pasaria -> ignorar
+    ja .fin
 
-    ; --- Regla 2: no dos operadores seguidos ---
-    call BotonEsOperador            ; ZF=1 si el boton es operador
-    jnz .agregar                    ; no es operador -> OK
-    ; el boton SI es operador
+    ; --- Regla 3: el boton es simbolo y el ultimo del buffer tambien -> bloquear ---
+    call BotonEsSimbolo             ; ZF=1 si el boton es simbolo
+    jnz .agregar                    ; no es simbolo -> puede entrar
+    ; el boton SI es simbolo
     cmp ebx,0
-    je .fin                         ; buffer vacio: no empezar con operador
+    je .chequear_primer_caracter    ; buffer vacio: validar primer caracter
+    ; mirar ultimo caracter del buffer
     lea esi,[buffer]
     add esi,ebx
     dec esi
     mov al,[esi]
-    call CaracterEsOperador         ; ZF=1 si el ultimo caracter es operador
-    jz .fin                         ; ya hay operador -> ignorar
+    call CaracterEsSimbolo          ; ZF=1 si el ultimo caracter es simbolo
+    jz .fin                         ; ya hay simbolo -> bloquear
 
 .agregar:
 
@@ -92,6 +104,18 @@ proc ProcesarComando uses ebx esi edi, hwnd,wparam,lparam
     mov byte [edi],0
     invoke SetWindowText,[hEditOp],buffer
     jmp .fin
+
+    ; Buffer vacio: el primer caracter solo puede ser digito o '-'
+.chequear_primer_caracter:
+    lea esi,[btnText]
+    mov al,[esi]
+    cmp al,'-'
+    je .agregar                     ; '-' al inicio permitido
+    cmp al,'0'
+    jb .fin
+    cmp al,'9'
+    ja .fin
+    jmp .agregar                    ; digito al inicio permitido
 
 .limpiar:
     invoke SetWindowText,[hEditOp],Vacio
@@ -172,9 +196,9 @@ proc ContarDigitosBoton
     ret
 endp
 
-; ZF=1 si btnText (primer caracter) es operador (+ - X x * /)
-; NO considera '=' ni '.' como operador.
-proc BotonEsOperador
+; ZF=1 si el primer caracter de btnText es simbolo (+ - X x * / . %)
+; NO considera digitos.
+proc BotonEsSimbolo
     push eax
     push esi
     lea esi,[btnText]
@@ -191,6 +215,10 @@ proc BotonEsOperador
     je .si
     cmp al,'/'
     je .si
+    cmp al,'.'
+    je .si
+    cmp al,'%'
+    je .si
     pop esi
     pop eax
     or  al,1        ; ZF=0
@@ -202,9 +230,8 @@ proc BotonEsOperador
     ret
 endp
 
-; ZF=1 si AL es operador (+ - X x * /)
-; NO considera '=' ni '.' como operador.
-proc CaracterEsOperador
+; ZF=1 si AL es simbolo (+ - X x * / . %)
+proc CaracterEsSimbolo
     cmp al,'+'
     je .si
     cmp al,'-'
@@ -217,6 +244,10 @@ proc CaracterEsOperador
     je .si
     cmp al,'/'
     je .si
+    cmp al,'.'
+    je .si
+    cmp al,'%'
+    je .si
     or  al,1
     ret
 .si:
@@ -224,30 +255,23 @@ proc CaracterEsOperador
     ret
 endp
 
-; WndProc del edit de operacion: bloquea toda entrada por teclado
-; (caracteres, teclas, pegar, cortar, borrar).
-; La unica forma de modificar el edit es por los botones.
+
+; WndProc del edit de operacion: bloquea TODA entrada por teclado.
 proc EditSinTeclado hwnd,wmsg,wparam,lparam
 
     cmp [wmsg],WM_CHAR
     je .bloquear
-
     cmp [wmsg],WM_KEYDOWN
     je .bloquear
-
     cmp [wmsg],WM_KEYUP
     je .bloquear
-
     cmp [wmsg],WM_PASTE
     je .bloquear
-
     cmp [wmsg],WM_CUT
     je .bloquear
-
     cmp [wmsg],WM_CLEAR
     je .bloquear
 
-    ; cualquier otra cosa: dejar pasar al wndproc original
     invoke CallWindowProc,[hEditOpOldProc],[hwnd],[wmsg],[wparam],[lparam]
     ret
 

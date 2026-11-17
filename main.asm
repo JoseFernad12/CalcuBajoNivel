@@ -32,12 +32,11 @@ txt3     db '3',0
 txtAdd   db '+',0
 
 txt0     db '0',0
-txtComa  db ',',0
-txtPunto db '.',0
 txtIgual db '=',0
-
+txtPunto db '.',0
 txtSalir db 'Salir',0
 
+hEditOpOldProc dd ?
 hInstance dd ?
 hWnd      dd ?
 hEditOp   dd ?
@@ -157,9 +156,8 @@ proc WndProc hwnd,wmsg,wparam,lparam
 endp
 
 
-include 'ventana.inc'
 include 'eventos.inc'
+include 'ventana.inc'
 include 'operadores.inc'
-
 
 .end start
