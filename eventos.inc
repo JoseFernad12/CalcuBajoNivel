@@ -63,6 +63,14 @@ proc ProcesarComando uses ebx esi edi, hwnd,wparam,lparam
     cmp ecx,MAX_DIGITOS
     ja .fin
 
+    ; --- Regla 4: punto solo una vez por numero ---
+    call BotonEsPunto
+    jnz .no_es_punto
+    ; el boton es '.', verificar si el numero actual ya tiene punto
+    call PuntoYaUsadoEnNumeroActual
+    jz .fin                 ; ya hay punto en este numero -> bloquear
+    .no_es_punto:
+
     ; --- Regla 3: el boton es simbolo y el ultimo del buffer tambien -> bloquear ---
     call BotonEsSimbolo             ; ZF=1 si el boton es simbolo
     jnz .agregar                    ; no es simbolo -> puede entrar
@@ -279,4 +287,87 @@ proc EditSinTeclado hwnd,wmsg,wparam,lparam
     xor eax,eax
     ret
 
+endp
+
+; ZF=1 si el boton presionado es '.'
+proc BotonEsPunto
+    push eax
+    push esi
+    lea esi,[btnText]
+    mov al,[esi]
+    cmp al,'.'
+    je .si
+    pop esi
+    pop eax
+    or  al,1        ; ZF=0
+    ret
+.si:
+    pop esi
+    pop eax
+    xor al,al       ; ZF=1
+    ret
+endp
+
+; ZF=1 si el numero actual (desde el ultimo operador hasta el final del buffer)
+; ya contiene un punto.
+; Usa ebx = longitud actual del buffer.
+proc PuntoYaUsadoEnNumeroActual
+    push esi
+    push ecx
+    push eax
+
+    mov ecx,ebx
+    cmp ecx,0
+    je .no_punto
+
+    lea esi,[buffer]
+    add esi,ecx
+    dec esi                 ; apunta al ultimo caracter
+
+.loop:
+    mov al,[esi]
+    cmp al,'.'
+    je .encontrado_punto
+
+    ; si es operador (distinto de '.'), terminó el numero actual
+    cmp al,'+'
+    je .fin_numero
+    cmp al,'-'
+    je .fin_numero
+    cmp al,'X'
+    je .fin_numero
+    cmp al,'x'
+    je .fin_numero
+    cmp al,'*'
+    je .fin_numero
+    cmp al,'/'
+    je .fin_numero
+    cmp al,'%'
+    je .fin_numero
+
+    ; si es digito u otra cosa, seguir hacia atras
+    dec esi
+    dec ecx
+    jnz .loop
+
+    ; llegamos al inicio sin encontrar punto
+    jmp .no_punto
+
+.encontrado_punto:
+    pop eax
+    pop ecx
+    pop esi
+    xor al,al       ; ZF=1 -> ya hay punto
+    ret
+
+.fin_numero:
+    ; encontramos un operador antes que un punto -> no hay punto en este numero
+    jmp .no_punto
+
+.no_punto:
+    pop eax
+    pop ecx
+    pop esi
+    or  al,1        ; ZF=0 -> no hay punto todavia
+    ret
 endp

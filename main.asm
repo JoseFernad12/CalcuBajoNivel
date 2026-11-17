@@ -84,7 +84,7 @@ start:
         CW_USEDEFAULT,\
         CW_USEDEFAULT,\
         250,\
-        360,\
+        340,\
         0,\
         0,\
         [hInstance],\
