@@ -32,9 +32,8 @@ txt3     db '3',0
 txtAdd   db '+',0
 
 txt0     db '0',0
-txtComa  db ',',0
 txtPunto db '.',0
-txtIgual db '=',0
+
 
 txtSalir db 'Salir',0
 
@@ -47,7 +46,13 @@ wc  WNDCLASS
 msg MSG
 
 buffer  rb 128
-btnText rb 16
+; ID y caracter permitido; no se obtiene texto arbitrario de controles.
+EntradasBotones:
+    dd IDC_BTN_0,'0', IDC_BTN_1,'1', IDC_BTN_2,'2', IDC_BTN_3,'3'
+    dd IDC_BTN_4,'4', IDC_BTN_5,'5', IDC_BTN_6,'6', IDC_BTN_7,'7'
+    dd IDC_BTN_8,'8', IDC_BTN_9,'9', IDC_BTN_ADD,'+', IDC_BTN_SUB,'-'
+    dd IDC_BTN_MUL,'X', IDC_BTN_DIV,'/', IDC_BTN_PORC,'%'
+    dd IDC_BTN_PUNTO,'.', 0,0
 
 
 .code
@@ -101,8 +106,8 @@ mensaje:
 
     invoke GetMessage,msg,0,0,0
 
-    cmp eax,1
-    jb salir
+    test eax,eax
+    jle salir
 
     invoke TranslateMessage,msg
     invoke DispatchMessage,msg

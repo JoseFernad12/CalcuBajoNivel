@@ -5,7 +5,7 @@ proc CrearControles hwnd
         WS_EX_CLIENTEDGE,\
         EditClass,\
         Vacio,\
-        WS_CHILD or WS_VISIBLE or ES_AUTOHSCROLL,\
+        WS_CHILD or WS_VISIBLE or ES_RIGHT or ES_READONLY or ES_AUTOHSCROLL,\
         20,20,95,25,\
         [hwnd],\
         IDC_EDIT_OP,\
@@ -21,7 +21,7 @@ proc CrearControles hwnd
         EditClass,\
         Vacio,\
         WS_CHILD or WS_VISIBLE or ES_RIGHT or ES_READONLY,\
-        125,20,85,25,\
+        125,20,90,25,\
         [hwnd],\
         IDC_EDIT_RES,\
         [hInstance],\
@@ -86,20 +86,18 @@ proc CrearControles hwnd
     ; FILA 5
     ; --------------------
 
-    invoke CreateWindowEx,0,ButtonClass,txt0,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,20,205,45,30,[hwnd],IDC_BTN_0,[hInstance],0
+    invoke CreateWindowEx,0,ButtonClass,txt0,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,20,205,145,30,[hwnd],IDC_BTN_0,[hInstance],0
 
-    invoke CreateWindowEx,0,ButtonClass,txtComa,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,70,205,45,30,[hwnd],IDC_BTN_COMA,[hInstance],0
 
-    invoke CreateWindowEx,0,ButtonClass,txtPunto,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,120,205,45,30,[hwnd],IDC_BTN_PUNTO,[hInstance],0
+    invoke CreateWindowEx,0,ButtonClass,txtPunto,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,170,205,45,30,[hwnd],IDC_BTN_PUNTO,[hInstance],0
 
-    invoke CreateWindowEx,0,ButtonClass,txtIgual,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,170,205,45,30,[hwnd],IDC_BTN_IGUAL,[hInstance],0
 
 
     ; --------------------
     ; SALIR
     ; --------------------
 
-    invoke CreateWindowEx,0,ButtonClass,txtSalir,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,75,265,85,30,[hwnd],IDC_BTN_SALIR,[hInstance],0
+    invoke CreateWindowEx,0,ButtonClass,txtSalir,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,75,250,85,30,[hwnd],IDC_BTN_SALIR,[hInstance],0
 
 
     ret
