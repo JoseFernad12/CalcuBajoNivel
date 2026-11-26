@@ -33,6 +33,7 @@ Menu=0,1,0,0,1,1,1,1,0,0,0,0,0,0,0,0
 4=eventos.inc
 5=operadores.inc
 6=validacion.inc
+7=calculo_datos.inc
 [Group]
 Group=Added files,Assembly,Resources,Misc,Modules
 1=2
@@ -41,6 +42,7 @@ Group=Added files,Assembly,Resources,Misc,Modules
 4=2
 5=2
 6=2
+7=2
 [VersionControl]
 Settings=1246
 Milestones=129
@@ -51,7 +53,7 @@ MilestoneOnTime=2
 MilestoneOnDate=0
 MilestoneOnDateWhen=1
 MilestoneOnDateStatus=0
-MilestoneOnDateDate=6
+MilestoneOnDateDate=18
 MilestoneOnDateTimeYear=2026
 MilestoneOnDateTimeMonth=11
 MilestoneOnDateTimeDate=5
@@ -84,9 +86,9 @@ ProductVer4Range=0
 6=00FFFFFF
 7=00FFFFFF
 [PTimer]
-PTimer=1961328
+PTimer=1998078
 [AutoLoad]
-AutoLoad=1,5,3
+AutoLoad=1,5,3,4,6
 [GroupExpand]
 GroupExpand=0,1,0,0,0,0
 [BookMark]
@@ -109,7 +111,11 @@ GroupExpand=0,1,0,0,0,0
 3=
 1=
 5=
+6=
+4=
 [Size]
 3=0,0,0,0,210
 1=0,0,0,0,1416
 5=0,0,0,0,0
+6=0,0,0,0,0
+4=0,0,0,0,0

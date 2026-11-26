@@ -1,3 +1,5 @@
+MAX_ENTRADA    = 11
+
 IDC_EDIT_OP    = 1000
 IDC_EDIT_RES   = 1001
 

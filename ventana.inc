@@ -5,7 +5,7 @@ proc CrearControles hwnd
         WS_EX_CLIENTEDGE,\
         EditClass,\
         Vacio,\
-        WS_CHILD or WS_VISIBLE or ES_RIGHT or ES_READONLY or ES_AUTOHSCROLL,\
+        WS_CHILD or WS_VISIBLE or ES_RIGHT or ES_READONLY,\
         20,20,95,25,\
         [hwnd],\
         IDC_EDIT_OP,\
@@ -13,6 +13,11 @@ proc CrearControles hwnd
         0
 
     mov [hEditOp],eax
+
+    ; Use the compact GUI font so all 11 characters fit without scrolling.
+    invoke GetStockObject,DEFAULT_GUI_FONT
+    invoke SendMessage,[hEditOp],WM_SETFONT,eax,TRUE
+    invoke SendMessage,[hEditOp],EM_LIMITTEXT,MAX_ENTRADA,0
 
 
     ; cuadro derecho
@@ -28,6 +33,8 @@ proc CrearControles hwnd
         0
 
     mov [hEditRes],eax
+    invoke GetStockObject,DEFAULT_GUI_FONT
+    invoke SendMessage,[hEditRes],WM_SETFONT,eax,TRUE
 
 
     ; --------------------
@@ -86,10 +93,12 @@ proc CrearControles hwnd
     ; FILA 5
     ; --------------------
 
-    invoke CreateWindowEx,0,ButtonClass,txt0,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,20,205,145,30,[hwnd],IDC_BTN_0,[hInstance],0
+    invoke CreateWindowEx,0,ButtonClass,txt0,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,20,205,95,30,[hwnd],IDC_BTN_0,[hInstance],0
 
 
-    invoke CreateWindowEx,0,ButtonClass,txtPunto,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,170,205,45,30,[hwnd],IDC_BTN_PUNTO,[hInstance],0
+    invoke CreateWindowEx,0,ButtonClass,txtPunto,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,120,205,45,30,[hwnd],IDC_BTN_PUNTO,[hInstance],0
+
+    invoke CreateWindowEx,0,ButtonClass,txtIgual,WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON,170,205,45,30,[hwnd],IDC_BTN_IGUAL,[hInstance],0
 
 
 

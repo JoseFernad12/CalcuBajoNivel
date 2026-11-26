@@ -4,7 +4,7 @@ include 'controles.inc'
 .data
 
 ClassName db 'CalculadoraFASM',0
-AppName   db 'Ventana 1',0
+AppName   db 'Calculadora FASM',0
 
 EditClass   db 'EDIT',0
 ButtonClass db 'BUTTON',0
@@ -33,6 +33,7 @@ txtAdd   db '+',0
 
 txt0     db '0',0
 txtPunto db '.',0
+txtIgual db '=',0
 
 
 txtSalir db 'Salir',0
@@ -45,7 +46,8 @@ hEditRes  dd ?
 wc  WNDCLASS
 msg MSG
 
-buffer  rb 128
+buffer  rb MAX_ENTRADA+1
+include 'calculo_datos.inc'
 ; ID y caracter permitido; no se obtiene texto arbitrario de controles.
 EntradasBotones:
     dd IDC_BTN_0,'0', IDC_BTN_1,'1', IDC_BTN_2,'2', IDC_BTN_3,'3'

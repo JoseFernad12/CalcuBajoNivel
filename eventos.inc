@@ -19,7 +19,9 @@ proc ProcesarComando uses ebx esi edi, hwnd,wparam,lparam
     je .limpiar
     cmp ebx,IDC_BTN_BACK
     je .borrar
-    ; Lista explicita: no aceptar IDs inexistentes ni el antiguo igual.
+    cmp ebx,IDC_BTN_IGUAL
+    je .igual
+    ; Only known button IDs can add input characters.
     mov esi,EntradasBotones
 .buscar:
     mov eax,[esi]
@@ -30,25 +32,40 @@ proc ProcesarComando uses ebx esi edi, hwnd,wparam,lparam
     add esi,8
     jmp .buscar
 .entrada:
-    invoke GetWindowText,[hEditOp],buffer,128
+    invoke GetWindowText,[hEditOp],buffer,MAX_ENTRADA+1
     stdcall AgregarEntrada,buffer,dword [esi+4]
     test eax,eax
     jz .fin
 .actualizar:
+    stdcall EvaluarExpresion,buffer,ResultadoTexto
+    cmp eax,1
+    sete al
+    movzx eax,al
+    mov [ResultadoValido],eax
+    invoke SetWindowText,[hEditRes],ResultadoTexto
+.mostrar_entrada:
     invoke SetWindowText,[hEditOp],buffer
     invoke SendMessage,[hEditOp],EM_SETSEL,-1,-1
     invoke SendMessage,[hEditOp],EM_SCROLLCARET,0,0
     jmp .fin
 .limpiar:
+    mov [ResultadoValido],0
+    mov byte [ResultadoTexto],0
     invoke SetWindowText,[hEditOp],Vacio
     invoke SetWindowText,[hEditRes],Vacio
     jmp .fin
 .borrar:
-    invoke GetWindowText,[hEditOp],buffer,128
+    invoke GetWindowText,[hEditOp],buffer,MAX_ENTRADA+1
     test eax,eax
     jz .fin
     mov byte [buffer+eax-1],0
     jmp .actualizar
+.igual:
+    cmp [ResultadoValido],1
+    jne .fin
+    ; Only complete, bounded numeric results can become the next operand.
+    invoke lstrcpy,buffer,ResultadoTexto
+    jmp .mostrar_entrada
 .salir:
     invoke SendMessage,[hwnd],WM_CLOSE,0,0
 .fin:
