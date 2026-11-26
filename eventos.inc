@@ -21,7 +21,7 @@ proc ProcesarComando uses ebx esi edi, hwnd,wparam,lparam
 
     ; '=' reservado para la logica
     cmp eax,IDC_BTN_IGUAL
-    je .fin
+    je .calcular
 
     ; ignorar mensajes que no son de botones de entrada (1102..1142)
     cmp eax,IDC_BTN_PORC
@@ -202,6 +202,10 @@ proc ProcesarComando uses ebx esi edi, hwnd,wparam,lparam
 
 .salir:
     invoke SendMessage,[hwnd],WM_CLOSE,0,0
+
+.calcular:
+    call ResolverOperacion
+    jmp .fin
 
 .fin:
     ret
