@@ -28,7 +28,6 @@ proc ResolverOperacion
     cmp eax,0
     je .error
 
-    ; Solo "-" no es valido
     cmp eax,1
     jne .eval
     cmp byte [bufferCalc],'-'
@@ -64,6 +63,7 @@ proc EvaluarExpresion
     push ebx
     push ecx
     push edx
+    push edi
 
     lea esi,[bufferCalc]
 
@@ -134,19 +134,40 @@ proc EvaluarExpresion
     jmp .done
 
 .op_mul:
-    ; eax * ebx (ambos ×100) → dividir por 100
-    imul ebx        ; edx:eax = producto
-    mov ebx,100
-    idiv ebx        ; eax = cociente (×100)
+    ; eax * ebx (ambos ×100) -> /100
+    imul ebx                    ; edx:eax = producto 64-bit
+    ; Si |edx| > 48, el cociente /100 no entra en int32 => Error
+    cmp edx, 48
+    jg .err
+    cmp edx, -48
+    jl .err
+    mov ebx, 100
+    idiv ebx                    ; ya es seguro
     jmp .done
 
 .op_div:
     cmp ebx,0
     je .err
-    ; (eax × 100) / ebx
-    mov ecx,100
-    imul ecx        ; edx:eax = eax*100
-    idiv ebx        ; eax = cociente (×100)
+    ; Check conservador: si |eax| > 21,474,836 y |ebx| < 47 => Error
+    ; (evita falsos negativos por redondeo; puede rechazar algun valido)
+    mov ecx, eax
+    mov edi, ecx
+    sar edi, 31
+    xor ecx, edi
+    sub ecx, edi                ; ecx = |eax|
+    cmp ecx, 21474836
+    jle .div_ok
+    mov ecx, ebx
+    mov edi, ecx
+    sar edi, 31
+    xor ecx, edi
+    sub ecx, edi                ; ecx = |ebx|
+    cmp ecx, 47
+    jl .err
+.div_ok:
+    mov ecx, 100
+    imul ecx                    ; edx:eax = eax*100
+    idiv ebx
     jmp .done
 
 .done:
@@ -164,6 +185,7 @@ proc EvaluarExpresion
     stc
 
 .fin:
+    pop edi
     pop edx
     pop ecx
     pop ebx
@@ -173,10 +195,6 @@ endp
 
 ; =========================================================
 ; ParseNumero
-; Entrada: esi -> inicio del numero
-; Salida : [parseResult] = int32 escalado ×100
-;          esi apunta al caracter siguiente (despues del numero y %)
-;          CF=1 si error
 ; =========================================================
 proc ParseNumero
     push ebx
@@ -187,14 +205,12 @@ proc ParseNumero
     xor ebx,ebx
     mov dword [numSigno],0
 
-    ; Signo
     cmp byte [esi],'-'
     jne .no_signo
     mov dword [numSigno],1
     inc esi
 .no_signo:
 
-    ; Debe haber digito
     mov al,[esi]
     cmp al,'0'
     jb .err
@@ -221,14 +237,13 @@ proc ParseNumero
     jne .no_frac
     inc esi
 
-    ; Debe haber digito despues del punto
     mov al,[esi]
     cmp al,'0'
     jb .err
     cmp al,'9'
     ja .err
 
-    xor ecx,ecx        ; contador fracional
+    xor ecx,ecx
 .read_frac:
     mov al,[esi]
     cmp al,'0'
@@ -261,7 +276,6 @@ proc ParseNumero
     jo .err
 
 .scaled:
-    ; Porcentaje
     cmp byte [esi],'%'
     jne .no_pct
     mov eax,ebx
@@ -272,7 +286,6 @@ proc ParseNumero
     inc esi
 .no_pct:
 
-    ; Signo
     cmp dword [numSigno],1
     jne .positivo
     neg ebx
@@ -295,7 +308,6 @@ endp
 
 ; =========================================================
 ; Int32ToStr: eax (escalado ×100) -> string en edi
-; Formato: entero, con decimales solo si hay
 ; =========================================================
 proc Int32ToStr
     push eax
@@ -313,12 +325,12 @@ proc Int32ToStr
 
     xor edx,edx
     mov ecx,100
-    div ecx            ; eax = entero, edx = frac (0-99)
+    div ecx
     push edx
 
     call ImprimirEntero
 
-    pop eax            ; eax = frac
+    pop eax
 
     test eax,eax
     jz .sin_frac
@@ -328,7 +340,7 @@ proc Int32ToStr
 
     xor edx,edx
     mov ecx,10
-    div ecx            ; eax = decena, edx = unidad
+    div ecx
     test edx,edx
     jnz .dos_digitos
 
