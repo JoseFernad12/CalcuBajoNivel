@@ -146,29 +146,48 @@ proc EvaluarExpresion
     jmp .done
 
 .op_div:
-    cmp ebx,0
+    cmp ebx, 0
     je .err
-    ; Check conservador: si |eax| > 21,474,836 y |ebx| < 47 => Error
-    ; (evita falsos negativos por redondeo; puede rechazar algun valido)
+
+    ; ecx = |eax|
     mov ecx, eax
     mov edi, ecx
     sar edi, 31
     xor ecx, edi
-    sub ecx, edi                ; ecx = |eax|
-    cmp ecx, 21474836
-    jle .div_ok
-    mov ecx, ebx
-    mov edi, ecx
-    sar edi, 31
-    xor ecx, edi
-    sub ecx, edi                ; ecx = |ebx|
-    cmp ecx, 47
-    jl .err
+    sub ecx, edi
+
+    ; edi = |ebx|
+    mov edi, ebx
+    push eax
+    mov eax, edi
+    cdq
+    xor edi, edx
+    sub edi, edx
+    pop eax
+
+    ; Check: |eax| <= 21474836 * |ebx|
+    ; (garantiza que |eax*100/ebx| entra en int32)
+    push eax
+    push edx
+    mov eax, 21474836
+    mul edi                     ; edx:eax = 21474836 * |ebx|
+    test edx, edx
+    jnz .div_ok                 ; edx > 0 => producto > 2^32 > |eax| => OK
+    cmp eax, ecx
+    jb .div_fail
+
 .div_ok:
+    pop edx
+    pop eax
     mov ecx, 100
     imul ecx                    ; edx:eax = eax*100
-    idiv ebx
+    idiv ebx                    ; ahora sí es seguro
     jmp .done
+
+.div_fail:
+    pop edx
+    pop eax
+    jmp .err
 
 .done:
     mov [parseResult],eax
@@ -406,5 +425,4 @@ proc ImprimirEntero
     pop ebx
     pop eax
     ret
-    
 endp
