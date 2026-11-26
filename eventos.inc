@@ -7,47 +7,37 @@ proc ProcesarComando uses ebx esi edi, hwnd,wparam,lparam
     mov eax,[wparam]
     and eax,0FFFFh
 
-    ; --------------------
     ; SALIR
-    ; --------------------
     cmp eax,IDC_BTN_SALIR
     je .salir
 
-    ; --------------------
     ; AC
-    ; --------------------
     cmp eax,IDC_BTN_AC
     je .limpiar
 
-    ; --------------------
     ; BORRAR
-    ; --------------------
     cmp eax,IDC_BTN_BACK
     je .borrar
 
-    ; --------------------
-    ; = : no se escribe, reservado para la logica
-    ; --------------------
+    ; '=' reservado para la logica
     cmp eax,IDC_BTN_IGUAL
     je .fin
 
-    ; --------------------
-    ; ignorar mensajes que no son de botones de entrada
-    ; --------------------
+    ; ignorar mensajes que no son de botones de entrada (1102..1142)
     cmp eax,IDC_BTN_PORC
     jb .fin
     cmp eax,IDC_BTN_PUNTO
     ja .fin
 
     ; =====================
-    ; A partir de aca: el boton agrega texto al edit
+    ; Boton que agrega texto
     ; =====================
 
     invoke GetWindowText,[hEditOp],buffer,127
-    mov ebx,eax                     ; ebx = longitud actual
+    mov ebx,eax
 
     invoke GetWindowText,[lparam],btnText,15
-    mov edx,eax                     ; edx = longitud del texto del boton
+    mov edx,eax
 
     ; --- Regla 1: limite total de caracteres ---
     mov eax,ebx
@@ -55,39 +45,120 @@ proc ProcesarComando uses ebx esi edi, hwnd,wparam,lparam
     cmp eax,MAX_CARACTERES
     ja .fin
 
-    ; --- Regla 2: limite de 11 digitos ---
-    call ContarDigitosBuffer        ; eax = digitos en buffer
+    ; --- Regla 2: limite de 11 digitos totales ---
+    call ContarDigitosBuffer
     mov ecx,eax
-    call ContarDigitosBoton         ; eax = digitos en btnText
+    call ContarDigitosBoton
     add ecx,eax
     cmp ecx,MAX_DIGITOS
     ja .fin
 
-    ; --- Regla 4: punto solo una vez por numero ---
+    ; --- Regla 3: punto, solo uno por numero y solo despues de digito ---
     call BotonEsPunto
     jnz .no_es_punto
-    ; el boton es '.', verificar si el numero actual ya tiene punto
-    call PuntoYaUsadoEnNumeroActual
-    jz .fin                 ; ya hay punto en este numero -> bloquear
-    .no_es_punto:
-
-    ; --- Regla 3: el boton es simbolo y el ultimo del buffer tambien -> bloquear ---
-    call BotonEsSimbolo             ; ZF=1 si el boton es simbolo
-    jnz .agregar                    ; no es simbolo -> puede entrar
-    ; el boton SI es simbolo
     cmp ebx,0
-    je .chequear_primer_caracter    ; buffer vacio: validar primer caracter
-    ; mirar ultimo caracter del buffer
+    je .fin
     lea esi,[buffer]
     add esi,ebx
     dec esi
     mov al,[esi]
-    call CaracterEsSimbolo          ; ZF=1 si el ultimo caracter es simbolo
-    jz .fin                         ; ya hay simbolo -> bloquear
+    cmp al,'0'
+    jb .fin
+    cmp al,'9'
+    ja .fin
+    call PuntoYaUsadoEnNumeroActual
+    jz .fin
+    jmp .agregar
+.no_es_punto:
+
+    ; --- Regla 4: operadores (+, -, X, /) ---
+    call BotonEsOperador
+    jnz .no_operador
+
+    ; el boton es operador
+    cmp ebx,0
+    je .operador_inicio
+
+    lea esi,[buffer]
+    add esi,ebx
+    dec esi
+    mov al,[esi]
+
+    call BotonEsMenos
+    jz .es_menos
+
+    ; ===== Boton es + X / =====
+    ; ultimo debe ser digito o '%'
+    cmp al,'0'
+    jb .check_pct
+    cmp al,'9'
+    jbe .ok_bin
+.check_pct:
+    cmp al,'%'
+    je .ok_bin
+    jmp .fin
+.ok_bin:
+    call ContarOperadoresBinarios
+    cmp eax,1
+    jae .fin
+    jmp .agregar
+
+.es_menos:
+    ; Boton '-'. al = ultimo caracter del buffer.
+    cmp al,'-'
+    je .fin                         ; no dos '-' seguidos
+    cmp al,'.'
+    je .fin                         ; '-' despues de punto incompleto
+    cmp al,'%'
+    je .minus_bin                   ; '%' antes de '-' -> binario
+    call CaracterEsOperador
+    jz .agregar                     ; ultimo + X / -> unario
+.minus_bin:
+    ; ultimo digito (o %) -> binario
+    call ContarOperadoresBinarios
+    cmp eax,1
+    jae .fin
+    jmp .agregar
+
+.operador_inicio:
+    ; buffer vacio: solo '-' permitido (negativo inicial)
+    call BotonEsMenos
+    jz .agregar
+    jmp .fin
+
+.no_operador:
+    ; --- Regla 5: porcentaje ---
+    call BotonEsPorcentaje
+    jnz .no_porcentaje
+    ; es '%'
+    cmp ebx,0
+    je .fin                         ; no empezar con %
+    lea esi,[buffer]
+    add esi,ebx
+    dec esi
+    mov al,[esi]
+    cmp al,'0'
+    jb .fin                         ; ultimo debe ser digito
+    cmp al,'9'
+    ja .fin
+    call ContarPorcentajes
+    cmp eax,1
+    jae .fin                        ; solo un % por expresion
+    jmp .agregar
+.no_porcentaje:
+
+    ; es digito. Si el ultimo es '%', bloquear (5%5 invalido).
+    cmp ebx,0
+    je .agregar
+    lea esi,[buffer]
+    add esi,ebx
+    dec esi
+    mov al,[esi]
+    cmp al,'%'
+    je .fin
+    jmp .agregar
 
 .agregar:
-
-    ; Reservar espacio para el terminador
     mov eax,ebx
     add eax,edx
     cmp eax,127
@@ -112,18 +183,6 @@ proc ProcesarComando uses ebx esi edi, hwnd,wparam,lparam
     mov byte [edi],0
     invoke SetWindowText,[hEditOp],buffer
     jmp .fin
-
-    ; Buffer vacio: el primer caracter solo puede ser digito o '-'
-.chequear_primer_caracter:
-    lea esi,[btnText]
-    mov al,[esi]
-    cmp al,'-'
-    je .agregar                     ; '-' al inicio permitido
-    cmp al,'0'
-    jb .fin
-    cmp al,'9'
-    ja .fin
-    jmp .agregar                    ; digito al inicio permitido
 
 .limpiar:
     invoke SetWindowText,[hEditOp],Vacio
@@ -150,9 +209,8 @@ proc ProcesarComando uses ebx esi edi, hwnd,wparam,lparam
 endp
 
 
-; -------------------- HELPERS --------------------
+; ===================== HELPERS =====================
 
-; Cuenta digitos (0..9) en buffer. Salida: eax
 proc ContarDigitosBuffer
     push esi
     push ecx
@@ -176,7 +234,6 @@ proc ContarDigitosBuffer
     ret
 endp
 
-; Cuenta digitos en btnText (largo en edx). Salida: eax
 proc ContarDigitosBoton
     push esi
     push ecx
@@ -204,9 +261,32 @@ proc ContarDigitosBoton
     ret
 endp
 
-; ZF=1 si el primer caracter de btnText es simbolo (+ - X x * / . %)
-; NO considera digitos.
-proc BotonEsSimbolo
+; ZF=1 si el primer caracter de btnText es '.'
+proc BotonEsPunto
+    push eax
+    push esi
+    lea esi,[btnText]
+    mov al,[esi]
+    cmp al,'.'
+    pop esi
+    pop eax
+    ret
+endp
+
+; ZF=1 si el primer caracter de btnText es '-'
+proc BotonEsMenos
+    push eax
+    push esi
+    lea esi,[btnText]
+    mov al,[esi]
+    cmp al,'-'
+    pop esi
+    pop eax
+    ret
+endp
+
+; ZF=1 si el primer caracter de btnText es '+' '-' 'X' 'x' '*' '/'
+proc BotonEsOperador
     push eax
     push esi
     lea esi,[btnText]
@@ -223,23 +303,29 @@ proc BotonEsSimbolo
     je .si
     cmp al,'/'
     je .si
-    cmp al,'.'
-    je .si
-    cmp al,'%'
-    je .si
     pop esi
     pop eax
-    or  al,1        ; ZF=0
     ret
 .si:
     pop esi
     pop eax
-    xor al,al       ; ZF=1
     ret
 endp
 
-; ZF=1 si AL es simbolo (+ - X x * / . %)
-proc CaracterEsSimbolo
+; ZF=1 si el primer caracter de btnText es '%'
+proc BotonEsPorcentaje
+    push eax
+    push esi
+    lea esi,[btnText]
+    mov al,[esi]
+    cmp al,'%'
+    pop esi
+    pop eax
+    ret
+endp
+
+; ZF=1 si AL es '+' '-' 'X' 'x' '*' '/'
+proc CaracterEsOperador
     cmp al,'+'
     je .si
     cmp al,'-'
@@ -252,21 +338,154 @@ proc CaracterEsSimbolo
     je .si
     cmp al,'/'
     je .si
-    cmp al,'.'
-    je .si
-    cmp al,'%'
-    je .si
-    or  al,1
     ret
 .si:
+    ret
+endp
+
+; ZF=1 si el numero actual (desde el ultimo operador hasta el final del buffer)
+; ya contiene un punto. Usa ebx = longitud del buffer.
+proc PuntoYaUsadoEnNumeroActual
+    push esi
+    push ecx
+    push eax
+    mov ecx,ebx
+    cmp ecx,0
+    je .no_punto
+    lea esi,[buffer]
+    add esi,ecx
+    dec esi
+.loop:
+    mov al,[esi]
+    cmp al,'.'
+    je .encontrado_punto
+    cmp al,'+'
+    je .fin_numero
+    cmp al,'-'
+    je .fin_numero
+    cmp al,'X'
+    je .fin_numero
+    cmp al,'x'
+    je .fin_numero
+    cmp al,'*'
+    je .fin_numero
+    cmp al,'/'
+    je .fin_numero
+    cmp al,'%'
+    je .fin_numero
+    dec esi
+    dec ecx
+    jnz .loop
+    jmp .no_punto
+.encontrado_punto:
+    pop eax
+    pop ecx
+    pop esi
     xor al,al
+    ret
+.fin_numero:
+.no_punto:
+    pop eax
+    pop ecx
+    pop esi
+    or  al,1
+    ret
+endp
+
+; Cuenta operadores BINARIOS en [buffer] (largo en ebx).
+; '-' cuenta como binario solo si el anterior es digito, '.' o '%'.
+; '%' NO cuenta como binario.
+proc ContarOperadoresBinarios
+    push esi
+    push ecx
+    push edx
+    push edi
+    lea esi,[buffer]
+    mov ecx,ebx
+    xor eax,eax
+    xor edi,edi
+.loop:
+    test ecx,ecx
+    jz .fin
+    mov dl,[esi]
+    cmp dl,'0'
+    jb .maybe_point
+    cmp dl,'9'
+    jbe .is_operand
+.maybe_point:
+    cmp dl,'.'
+    je .is_operand
+    cmp dl,'%'
+    je .is_operand
+    cmp dl,'+'
+    je .is_bin
+    cmp dl,'X'
+    je .is_bin
+    cmp dl,'x'
+    je .is_bin
+    cmp dl,'*'
+    je .is_bin
+    cmp dl,'/'
+    je .is_bin
+    cmp dl,'-'
+    je .check_minus
+    xor edi,edi
+    jmp .next
+.is_operand:
+    mov edi,1
+    jmp .next
+.is_bin:
+    inc eax
+    xor edi,edi
+    jmp .next
+.check_minus:
+    test edi,edi
+    jz .minus_unary
+    inc eax
+.minus_unary:
+    xor edi,edi
+    jmp .next
+.next:
+    inc esi
+    dec ecx
+    jmp .loop
+.fin:
+    pop edi
+    pop edx
+    pop ecx
+    pop esi
+    ret
+endp
+
+; Cuenta '%' en [buffer] (largo en ebx). Salida: eax
+proc ContarPorcentajes
+    push esi
+    push ecx
+    push edx
+    lea esi,[buffer]
+    mov ecx,ebx
+    xor eax,eax
+.loop:
+    test ecx,ecx
+    jz .fin
+    mov dl,[esi]
+    cmp dl,'%'
+    jne .next
+    inc eax
+.next:
+    inc esi
+    dec ecx
+    jmp .loop
+.fin:
+    pop edx
+    pop ecx
+    pop esi
     ret
 endp
 
 
-; WndProc del edit de operacion: bloquea TODA entrada por teclado.
+; WndProc del edit: bloquea TODO el teclado (entrada solo por botones)
 proc EditSinTeclado hwnd,wmsg,wparam,lparam
-
     cmp [wmsg],WM_CHAR
     je .bloquear
     cmp [wmsg],WM_KEYDOWN
@@ -279,95 +498,9 @@ proc EditSinTeclado hwnd,wmsg,wparam,lparam
     je .bloquear
     cmp [wmsg],WM_CLEAR
     je .bloquear
-
     invoke CallWindowProc,[hEditOpOldProc],[hwnd],[wmsg],[wparam],[lparam]
     ret
-
 .bloquear:
     xor eax,eax
-    ret
-
-endp
-
-; ZF=1 si el boton presionado es '.'
-proc BotonEsPunto
-    push eax
-    push esi
-    lea esi,[btnText]
-    mov al,[esi]
-    cmp al,'.'
-    je .si
-    pop esi
-    pop eax
-    or  al,1        ; ZF=0
-    ret
-.si:
-    pop esi
-    pop eax
-    xor al,al       ; ZF=1
-    ret
-endp
-
-; ZF=1 si el numero actual (desde el ultimo operador hasta el final del buffer)
-; ya contiene un punto.
-; Usa ebx = longitud actual del buffer.
-proc PuntoYaUsadoEnNumeroActual
-    push esi
-    push ecx
-    push eax
-
-    mov ecx,ebx
-    cmp ecx,0
-    je .no_punto
-
-    lea esi,[buffer]
-    add esi,ecx
-    dec esi                 ; apunta al ultimo caracter
-
-.loop:
-    mov al,[esi]
-    cmp al,'.'
-    je .encontrado_punto
-
-    ; si es operador (distinto de '.'), terminó el numero actual
-    cmp al,'+'
-    je .fin_numero
-    cmp al,'-'
-    je .fin_numero
-    cmp al,'X'
-    je .fin_numero
-    cmp al,'x'
-    je .fin_numero
-    cmp al,'*'
-    je .fin_numero
-    cmp al,'/'
-    je .fin_numero
-    cmp al,'%'
-    je .fin_numero
-
-    ; si es digito u otra cosa, seguir hacia atras
-    dec esi
-    dec ecx
-    jnz .loop
-
-    ; llegamos al inicio sin encontrar punto
-    jmp .no_punto
-
-.encontrado_punto:
-    pop eax
-    pop ecx
-    pop esi
-    xor al,al       ; ZF=1 -> ya hay punto
-    ret
-
-.fin_numero:
-    ; encontramos un operador antes que un punto -> no hay punto en este numero
-    jmp .no_punto
-
-.no_punto:
-    pop eax
-    pop ecx
-    pop esi
-    or  al,1        ; ZF=0 -> no hay punto todavia
     ret
 endp
